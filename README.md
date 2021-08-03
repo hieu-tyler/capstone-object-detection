@@ -94,7 +94,15 @@ cd object-detection-n-tracking/
 python3 main.py
 ```
 
+After the code run, the example should be similiar like this.
 
+<img height=300px src="image/single-object-output.jpg" alt="Single object image output"></a>
+
+There are some false negative when two objects overlap on each other.
+
+<img height=300px src="image/two-object-false-output.jpg" alt="Two objects overlap output"></a>
+
+The two points jump each other.
 
 ### Web socket control through Wi-Fi
 
