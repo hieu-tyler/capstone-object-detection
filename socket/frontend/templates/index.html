@@ -1,0 +1,87 @@
+{% extends "home.html" %}
+
+{% block body%} 
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+<div class="container">
+    <div class="center">
+        <button type="button" class="btn up btn-primary btn" id="btn-up">Up</button>
+    </div>
+    <div class="vertical-center">
+        <button type="button" class="btn btn-primary" id="btn-left">Left</button>
+        <button type="button" class="btn btn-primary" id="btn-down">Down</button>
+        <button type="button" class="btn btn-primary" id="btn-right">Right</button>
+    </div>
+</div>
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+
+<script type=text/javascript>
+    $(function() {
+      $('button#btn-left').on('click', function(e) {
+        e.preventDefault();
+        $.getJSON('/message/Left',
+            function(data) {
+          //do nothing
+          console.log("Left");
+        });
+        return false;
+      });
+      
+
+      $('button#btn-right').on('click', function(e) {
+        e.preventDefault();
+        $.getJSON('/message/Right',
+            function(data) {
+          //do nothing
+          console.log("Right");
+        });
+        return false;
+      });  
+
+      $('button#btn-up').on('click', function(e) {
+        e.preventDefault();
+        $.getJSON('/message/Up',
+            function(data) {
+          //do nothing
+          console.log("Up");
+        });
+        return false;
+      });
+
+      $('button#btn-down').on('click', function(e) {
+        e.preventDefault();
+        $.getJSON('/message/Down',
+            function(data) {
+          //do nothing
+          console.log("Down");
+        });
+        return false;
+      });
+    });
+</script>
+
+{% endblock %}
+   
+{% block scripts %}
+  <script>
+  // Add event listener on keypress
+  document.addEventListener('keypress', (event) => {
+    var name = event.key;
+    var code = event.code;
+    // Alert the key name and key code on keydown
+    console.log(`Key pressed ${name} \r\n Key code value: ${code}`);
+  }, false);
+  </script>
+{%endblock%}
+
+{% block video %}
+  <div class="container-video">
+    <div class="row">
+        <div class="col-lg-8  offset-lg-2">
+            <h3 class="mt-5">Live Streaming</h3>
+            <img src="{{ url_for('video_feed') }}" width="426px" height="240px" alt="Video Streaming">
+        </div>
+    </div>
+  </div>
+{%endblock%}
