@@ -15,9 +15,9 @@ parser = argparse.ArgumentParser(description="Locate objects in a live camera st
                                  formatter_class=argparse.RawTextHelpFormatter, epilog=jetson.inference.detectNet.Usage() +
                                  jetson.utils.videoSource.Usage() + jetson.utils.videoOutput.Usage() + jetson.utils.logUsage())
 
-parser.add_argument("input_URI", type=str, default="",
+parser.add_argument("input_URI", type=str, default="/home/nano/Videos/MVI_1470_VIS.avi",
                     nargs='?', help="URI of the input stream")
-parser.add_argument("output_URI", type=str, default="",
+parser.add_argument("output_URI", type=str, default="/home/nano/Videos/output/output.mp4",
                     nargs='?', help="URI of the output stream")
 parser.add_argument("--network", type=str, default="ssd-mobilenet-v2",
                     help="pre-trained model to load (see below for options)")
@@ -27,7 +27,7 @@ parser.add_argument("--threshold", type=float, default=0.5,
                     help="minimum detection threshold to use")
 parser.add_argument("-b", "--buffer", type=int,
                     default=32, help="max buffer size")
-parser.add_argument("--output_mode", type = str, default="normal", help="output stream type. e.g. 'normal', 'debug'")
+parser.add_argument("--output_mode", type = str, default="normal", help="output stream type. e.g. 'normal', 'stack', 'debug'")
 
 is_headless = ["--headless"] if sys.argv[0].find('console.py') != -1 else [""]
 
@@ -52,7 +52,8 @@ pts = deque(maxlen=32)
 counter = 0
 (dX, dY) = (0, 0)
 direction = ""
-
+area = 0
+frame_number = 0
 # allow the cemra or video file to warm up
 time.sleep(2.0)
 
@@ -70,6 +71,7 @@ while True:
 	# # create a copy of img to opencv img
 	array_img = jetson.utils.cudaToNumpy(img)
 	array_img = cv2.cvtColor(array_img, cv2.COLOR_RGB2BGR)
+	array_copy = array_img.copy()
 
 	gray_array_img = cv2.cvtColor(array_img, cv2.COLOR_BGR2GRAY)
 	gray_mask_img = cv2.erode(gray_array_img, None, iterations=2)
@@ -81,20 +83,34 @@ while True:
 	# print the detections
 	# print("detected {:d} objects in image".format(len(detections)))
 
+	data_point = []
+
+	print("Frame number", frame_number)
+	frame_number += 1
+
+
 	for detection in detections:
-		# print(
-		# 	f"""
-		# 	[Width] {detection.Width}
-		# 	[Height] {detection.Height}
-		# 	[Center] {detection.Center}
-		# 	"""
-		# )
+		print(
+			f"""
+			[Width] {detection.Width}
+			[Height] {detection.Height}
+			[Center] {detection.Center}
+			[Left] {detection.Left}
+			[Right] {detection.Right}
+			[Top] {detection.Top}
+			[Area] {detection.Area}
+			"""
+		)
 		center = tuple(int(x) for x in detection.Center)
-		# print(center)
-		cv2.circle(array_img, center, 10, (255, 0, 0), thickness=-1)
+		left = (int(detection.Left), int(detection.Top))
+		right = (int(detection.Right), int(detection.Bottom))
+
+		# cv2.circle(array_img, center, 10, (255, 0, 0), thickness=-1)
+		
+		cv2.rectangle(array_copy, left, right, color = (255, 0, 0), thickness= -1)
 
 	# create a mask that give draw center on the point
-	mask = cv2.inRange(array_img, (254, 0, 0), (255, 0, 0))
+	mask = cv2.inRange(array_copy, (254, 0, 0), (255, 0, 0))
 	mask = cv2.erode(mask, None, iterations=2)
 	mask = cv2.dilate(mask, None, iterations=2)
 
@@ -106,7 +122,10 @@ while True:
 	center = None
 
 	# only proceed if at least one contour was found
-	if len(cnts) > 0:
+	if len(cnts) == 1:
+		if detections[0].Area < area:
+			print('Smaller than the last contour')
+			continue
 		# find the largest contour in the mask, then use
 		# it to compute the minimum enclosing circle and
 		# centroid
@@ -122,7 +141,9 @@ while True:
 			cv2.circle(array_img, (int(x), int(y)), int(radius),
 						(0, 255, 255), 2)
 			cv2.circle(array_img, center, 5, (0, 0, 255), -1)
-
+	
+		area = detections[0].Area
+		
 	pts.appendleft(center)
 
 	# loop over the set of tracked points
@@ -187,7 +208,15 @@ while True:
 	mask_img = cv2.cvtColor(mask_img, cv2.COLOR_BGR2RGB)
 
 	# revert the opencv image to cuda image
-	output_img = jetson.utils.cudaFromNumpy(stack_img) if opt.output_mode == "normal" else jetson.utils.cudaFromNumpy(mask_img)
+	array_img = cv2.cvtColor(array_img, cv2.COLOR_BGR2RGB)
+	
+	output_img = jetson.utils.cudaFromNumpy(stack_img) 
+	
+	if opt.output_mode == "normal":
+		output_img = jetson.utils.cudaFromNumpy(array_img)
+	elif opt.output_mode == "stack":
+		output_img = jetson.utils.cudaFromNumpy(stack_img)
+
 
 	# render the image
 	output.Render(output_img)
@@ -195,8 +224,8 @@ while True:
 	# update the title bar
 	# output.SetStatus("{:s} | Network {:.0f} FPS".format(opt.network, net.GetNetworkFPS()))
 
-	# print out performance info
-	net.PrintProfilerTimes()
+	# # print out performance info
+	# net.PrintProfilerTimes()
 
 	if not input.IsStreaming() or not output.IsStreaming():
 		break
